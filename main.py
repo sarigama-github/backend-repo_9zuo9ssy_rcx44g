@@ -1,8 +1,13 @@
 import os
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+from typing import List, Optional
 
-app = FastAPI()
+from database import create_document
+from schemas import ContactMessage
+
+app = FastAPI(title="Zhurme Agency API", version="1.0.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -14,7 +19,7 @@ app.add_middleware(
 
 @app.get("/")
 def read_root():
-    return {"message": "Hello from FastAPI Backend!"}
+    return {"message": "Zhurme Agency Backend Running"}
 
 @app.get("/api/hello")
 def hello():
@@ -64,6 +69,28 @@ def test_database():
     
     return response
 
+# Contact form models and endpoint
+class ContactRequest(BaseModel):
+    name: str
+    email: str
+    company: Optional[str] = None
+    services: Optional[List[str]] = None
+    budget: Optional[str] = None
+    message: str
+
+class ContactResponse(BaseModel):
+    status: str
+    id: Optional[str]
+
+@app.post("/api/contact", response_model=ContactResponse)
+async def create_contact(payload: ContactRequest):
+    try:
+        # validate with schema and persist
+        doc = ContactMessage(**payload.model_dump())
+        inserted_id = create_document("contactmessage", doc)
+        return ContactResponse(status="ok", id=inserted_id)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":
     import uvicorn
